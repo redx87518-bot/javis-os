@@ -22,28 +22,43 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+      - name: Install Gradle 8.7
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt/gradle
+          echo "/opt/gradle/gradle-8.7/bin" >> $GITHUB_PATH
 
-      - name: Clean build (prevent stale KSP cache)
-        run: gradle clean --no-build-cache --no-daemon
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
+      - name: Verify Gradle
+        run: gradle --version
 
       - name: Build Debug APK
-        run: gradle assembleDebug --no-build-cache --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --no-build-cache --stacktrace
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
 
       - name: Upload Debug APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: javis-os-debug-${{ github.run_number }}
+          name: JAVIS-OS-debug-${{ github.run_number }}
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
           if-no-files-found: warn
+
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "## JAVIS OS — Build #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            SIZE=$(du -sh app/build/outputs/apk/debug/app-debug.apk | cut -f1)
+            echo "**Debug APK:** $SIZE ✅" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Download from the **Artifacts** section above." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Build FAILED** — see logs above." >> $GITHUB_STEP_SUMMARY
+          fi
 
   build-release:
     name: Build Release APK
@@ -61,25 +76,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+      - name: Install Gradle 8.7
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt/gradle
+          echo "/opt/gradle/gradle-8.7/bin" >> $GITHUB_PATH
 
-      - name: Clean build (prevent stale KSP cache)
-        run: gradle clean --no-build-cache --no-daemon
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
-
-      - name: Build Release APK (unsigned)
-        run: gradle assembleRelease --no-build-cache --no-daemon --stacktrace
+      - name: Build Release APK
+        run: gradle assembleRelease --no-daemon --no-build-cache --stacktrace
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
 
       - name: Upload Release APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: javis-os-release-${{ github.run_number }}
+          name: JAVIS-OS-release-${{ github.run_number }}
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: warn
