@@ -1,0 +1,8 @@
+-keep class com.javis.os.** { *; }
+-keep class com.google.gson.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**
+-keep class retrofit2.** { *; }
+-keep class okhttp3.** { *; }
