@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">JAVIS OS</string>
-    <string name="accessibility_service_label">JAVIS Accessibility</string>
-    <string name="accessibility_service_description">Enables JAVIS to perform actions on your behalf, such as searching in apps and activating via shortcut button.</string>
-    <string name="notification_listener_label">JAVIS Notification Access</string>
-    <string name="notification_listener_description">Allows JAVIS to read and summarize your notifications.</string>
-    <string name="javis_greeting">Hello. Javis online. How can I help you?</string>
-    <string name="channel_foreground_name">JAVIS Assistant</string>
-    <string name="channel_foreground_desc">JAVIS is running in the background</string>
+    <string name="notification_listener_label">JAVIS Notification Reader</string>
+    <string name="accessibility_service_label">JAVIS Accessibility Assistant</string>
+    <string name="tile_label">JAVIS</string>
+    <string name="notification_channel_assistant">JAVIS Assistant</string>
+    <string name="notification_channel_alarms">JAVIS Alarms</string>
+    <string name="assistant_online">JAVIS ONLINE</string>
+    <string name="tap_to_speak">Tap to speak</string>
+    <string name="listening">Listening…</string>
+    <string name="thinking">Thinking…</string>
+    <string name="speaking">Speaking…</string>
 </resources>
