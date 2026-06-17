@@ -36,6 +36,9 @@
     <!-- Receive boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Home screen shortcut (legacy broadcast, needed for MIUI/Redmi) -->
+    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+
     <application
         android:name=".JavisApplication"
         android:allowBackup="true"
@@ -62,12 +65,28 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Shortcut Activity — for Redmi A1 and devices without overlay support.
+            Tap the home screen shortcut → JAVIS opens instantly in listening mode.
+            Add the shortcut from: JAVIS Settings → "Add to Home Screen"
+        -->
+        <activity
+            android:name=".ShortcutActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleTask"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="com.javis.os.ACTION_START_LISTENING" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Assistant Foreground Service -->
         <service
             android:name=".service.JavisAssistantService"
             android:exported="false"
-            android:foregroundServiceType="microphone">
-        </service>
+            android:foregroundServiceType="microphone" />
 
         <!-- Notification Listener Service -->
         <service
