@@ -56,6 +56,13 @@ android {
     kapt {
         correctErrorTypes = true
     }
+
+    // Only compile from kotlin/ — the old java/ directory contains conflicting duplicates
+    sourceSets {
+        named("main") {
+            java.setSrcDirs(listOf("src/main/kotlin"))
+        }
+    }
 }
 
 dependencies {
