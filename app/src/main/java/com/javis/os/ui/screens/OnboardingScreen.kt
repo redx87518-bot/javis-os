@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.javis.os.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun OnboardingScreen(onFinished: (String) -> Unit) {
