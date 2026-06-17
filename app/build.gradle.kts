@@ -14,13 +14,14 @@ android {
         applicationId = "com.javis.os"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GROQ_BASE_URL", "\"https://api.groq.com/openai/v1/\"")
         buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com/v1/\"")
         buildConfigField("String", "ELEVENLABS_BASE_URL", "\"https://api.elevenlabs.io/v1/\"")
+        buildConfigField("String", "WEATHER_BASE_URL", "\"https://api.open-meteo.com/v1/\"")
     }
 
     buildTypes {
@@ -55,6 +56,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
