@@ -23,7 +23,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object Memory : Screen("memory", "Memory", Icons.Default.Psychology)
     object Notifications : Screen("notifications", "Alerts", Icons.Default.Notifications)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
-    object Onboarding : Screen("onboarding", "Onboarding", Icons.Default.Waving_hand)
+    object Onboarding : Screen("onboarding", "Onboarding", Icons.Default.SmartToy)
 }
 
 val bottomNavItems = listOf(Screen.Chat, Screen.Voice, Screen.Memory, Screen.Notifications, Screen.Settings)
