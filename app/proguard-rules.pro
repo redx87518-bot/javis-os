@@ -1,8 +1,6 @@
--keep class com.javis.os.** { *; }
--keep class com.google.gson.** { *; }
+-keep class com.javis.os.data.remote.dto.** { *; }
+-keep class com.javis.os.data.local.entities.** { *; }
 -keepattributes Signature
 -keepattributes *Annotation*
 -dontwarn okhttp3.**
 -dontwarn retrofit2.**
--keep class retrofit2.** { *; }
--keep class okhttp3.** { *; }
