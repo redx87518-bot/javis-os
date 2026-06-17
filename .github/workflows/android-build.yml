@@ -27,10 +27,15 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+      - name: Clean build (prevent stale KSP cache)
+        run: gradle clean --no-build-cache --no-daemon
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2g"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --no-build-cache --no-daemon --stacktrace
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -61,10 +66,15 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Release APK (unsigned)
-        run: gradle assembleRelease --stacktrace
+      - name: Clean build (prevent stale KSP cache)
+        run: gradle clean --no-build-cache --no-daemon
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Xmx2g"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
+
+      - name: Build Release APK (unsigned)
+        run: gradle assembleRelease --no-build-cache --no-daemon --stacktrace
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
