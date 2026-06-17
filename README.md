@@ -1,109 +1,115 @@
-# 🤖 JAVIS OS — Android AI Assistant
+# JAVIS OS — AI Companion for Android
 
-**J**ust **A** **V**oice **I**ntelligent **S**ystem — A complete Android AI companion built with Kotlin, Jetpack Compose, and modern Android architecture.
+> An intelligent, voice-first AI companion that understands natural language, remembers the user, controls Android apps, and operates online and offline.
 
----
-
-## Quick Start
-
-### Prerequisites
-- Android Studio Hedgehog or newer (2023.1.1+)
-- JDK 17
-- Android SDK 35
-- A Google Gemini API key (free at [aistudio.google.com](https://aistudio.google.com))
-
-### 1. Get a Gemini API Key
-1. Go to [aistudio.google.com](https://aistudio.google.com/app/apikey)
-2. Create a free API key
-3. Copy it
-
-### 2. Configure API Key
-Open `app/build.gradle.kts` and replace:
-```kotlin
-buildConfigField("String", "GEMINI_API_KEY", "\"YOUR_GEMINI_API_KEY_HERE\"")
-```
-with your actual key:
-```kotlin
-buildConfigField("String", "GEMINI_API_KEY", "\"AIzaSy...your-key...\"")
-```
-
-> **Tip:** You can also set it at runtime in Settings → AI Provider → API Key, which overrides the build-time key.
-
-### 3. Open in Android Studio
-```
-File → Open → select the javis-os/ folder
-```
-Let Gradle sync complete.
-
-### 4. Run on Device or Emulator
-- Connect an Android device (API 26+) or use AVD
-- Press **Run** (Shift+F10)
+[![Android Build](https://github.com/redx87518-bot/javis-os/actions/workflows/android-build.yml/badge.svg)](https://github.com/redx87518-bot/javis-os/actions/workflows/android-build.yml)
 
 ---
 
-## Building the APK
+## Features
+
+| Feature | Status |
+|---|---|
+| Natural language conversation | ✅ |
+| Voice input (Android SpeechRecognizer) | ✅ |
+| Voice output (ElevenLabs + Android TTS fallback) | ✅ |
+| AI providers: Groq + DeepSeek with auto-fallback | ✅ |
+| Memory engine (remembers user name, prefs, habits) | ✅ |
+| App launcher (opens any installed app by name) | ✅ |
+| YouTube search via voice | ✅ |
+| Web search | ✅ |
+| Alarm & reminder setting | ✅ |
+| Contact calling (via dialer) | ✅ |
+| Notification reader | ✅ |
+| Accessibility Service | ✅ |
+| Quick Settings Tile | ✅ |
+| Persistent foreground notification | ✅ |
+| Offline fallback mode | ✅ |
+| Background service (stays alive) | ✅ |
+
+---
+
+## Tech Stack
+
+- **Language**: Kotlin
+- **UI**: Jetpack Compose (Material 3, dark futuristic theme)
+- **Architecture**: MVVM + Repository Pattern
+- **DI**: Hilt
+- **DB**: Room + DataStore
+- **Network**: Retrofit + OkHttp
+- **Async**: Coroutines + StateFlow
+
+---
+
+## First-Time Setup
+
+### 1. Get API Keys
+
+| Service | Where to get it | Required? |
+|---|---|---|
+| **Groq** | [console.groq.com](https://console.groq.com) — free tier available | Recommended |
+| **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com) | Fallback |
+| **ElevenLabs** | [elevenlabs.io](https://elevenlabs.io) | Optional (for natural voice) |
+
+### 2. Install & Grant Permissions
+
+When you first open the app, grant:
+- **Microphone** — for voice input
+- **Contacts & Phone** — for calling
+- **Notifications** — for persistent notification
+- **Notification Access** — Settings → Apps → Special App Access → Notification Access → JAVIS
+- **Accessibility Service** — Settings → Accessibility → JAVIS (optional, for app control)
+
+### 3. Configure in Settings
+
+1. Enter your name
+2. Paste your Groq API key (or DeepSeek)
+3. Optionally add ElevenLabs API key + Voice ID for a natural voice
+4. Tap **Save Settings**
+
+---
+
+## Example Commands
+
+```
+"Call Musa"
+"Open YouTube and search Kano news"
+"Set alarm for 7 AM tomorrow"
+"Remind me at 8 to take medicine"
+"Search Google for weather today"
+"Open WhatsApp"
+"Tell me a joke"
+"My name is Ibrahim"
+"What do you remember about me?"
+"What's the time?"
+```
+
+---
+
+## Build
 
 ### Debug APK
 ```bash
 ./gradlew assembleDebug
 ```
-Output: `app/build/outputs/apk/debug/app-debug.apk`
+APK: `app/build/outputs/apk/debug/app-debug.apk`
 
-### Release APK (requires signing config)
-1. Generate a keystore:
-   ```bash
-   keytool -genkey -v -keystore javis-keystore.jks -alias javis -keyalg RSA -keysize 2048 -validity 10000
-   ```
-2. Add to `app/build.gradle.kts`:
-   ```kotlin
-   signingConfigs {
-       create("release") {
-           storeFile = file("../javis-keystore.jks")
-           storePassword = "your_password"
-           keyAlias = "javis"
-           keyPassword = "your_password"
-       }
-   }
-   ```
-3. Build:
-   ```bash
-   ./gradlew assembleRelease
-   ```
+### Release APK (unsigned)
+```bash
+./gradlew assembleRelease
+```
+
+### GitHub Actions
+Every push to `main` automatically builds both debug and release APKs. Download them from the **Actions** tab → latest workflow run → **Artifacts**.
 
 ---
 
-## Feature Setup Guide
+## Minimum Requirements
 
-### Enable Accessibility Service (for shortcut activation)
-1. Settings → Accessibility → Installed services → JAVIS
-2. Toggle ON
-3. JAVIS will now be accessible via the accessibility shortcut button
-
-### Enable Notification Listener (for reading notifications)
-1. Settings → Notifications → JAVIS → Allow
-   OR tap "Grant Notification Access" in JAVIS Settings screen
-2. JAVIS can now read and summarize your notifications
-
-### Enable Quick Settings Tile
-1. Pull down notification shade twice
-2. Tap the edit/pencil icon
-3. Find "JAVIS" tile and drag to active tiles
-4. Tap the tile to activate voice mode instantly
-
-### Add to Home Screen
-- Open JAVIS → Settings → Shortcuts → "Add to Home Screen"
-- Tap the created shortcut to launch directly in voice mode
-
----
-
-## AI Provider Configuration
-
-| Provider | Model | Cost | Setup |
-|----------|-------|------|-------|
-| **Google Gemini** (default) | gemini-1.5-flash | Free tier available | Get key at aistudio.google.com |
-| **OpenAI** | gpt-4o-mini | Pay per use | Get key at platform.openai.com |
-
-Switch providers in JAVIS Settings → AI Provider at any time.
+- Android 8.0 (API 26) or higher
+- ~50 MB storage
+- Internet for AI features (offline mode available for basic tasks)
+- Optimized for low-end devices (Redmi A1 and similar)
 
 ---
 
@@ -111,140 +117,36 @@ Switch providers in JAVIS Settings → AI Provider at any time.
 
 ```
 com.javis.os/
-├── JavisApplication.kt         — Hilt entry point, notification channels
-├── MainActivity.kt             — Single activity, permission launcher
-├── di/
-│   └── AppModule.kt            — Hilt dependency injection
-├── ai/
-│   ├── AiProvider.kt           — AI abstraction interface
-│   ├── GeminiProvider.kt       — Google Gemini implementation
-│   ├── OpenAiProvider.kt       — OpenAI implementation
-│   └── AiProviderFactory.kt    — Provider factory
+├── agent/          AgentRouter — classifies intent, dispatches to correct agent
 ├── data/
-│   ├── db/                     — Room database (conversations, memory, apps)
-│   ├── datastore/              — User preferences (DataStore)
-│   └── repository/             — Data repositories
-├── domain/
-│   ├── model/                  — Domain models (Message, Memory, TaskPlan)
-│   └── usecase/                — Business logic use cases
-├── service/
-│   ├── JavisForegroundService  — Persistent background service
-│   ├── JavisAccessibilityService — System shortcut + app automation
-│   ├── JavisNotificationListener — Reads device notifications
-│   ├── JavisQuickSettingsTile  — Quick Settings integration
-│   └── BootReceiver            — Auto-start on reboot
-├── voice/
-│   ├── SpeechRecognitionManager — Android SpeechRecognizer wrapper
-│   └── TextToSpeechManager     — Android TTS wrapper
-├── contacts/
-│   └── ContactsManager         — Search, call, dial contacts
-├── apps/
-│   ├── AppDiscoveryService     — Scans and indexes installed apps
-│   └── AppKnowledgeEngine      — App capability profiles
-├── tasks/
-│   └── TaskPlanner             — Multi-step task planning and execution
-└── ui/
-    ├── JavisNavHost.kt         — Navigation + bottom bar
-    ├── theme/                  — Futuristic dark theme
-    ├── screens/                — Chat, Voice, Memory, Notifications, Settings
-    └── viewmodel/              — ViewModels for each screen
+│   ├── local/      Room DB: conversations, memories, apps, alarms
+│   └── remote/     Retrofit: Groq, DeepSeek, ElevenLabs APIs
+├── di/             Hilt dependency injection modules
+├── domain/         Models + repository interfaces
+├── memory/         MemoryEngine — learns and recalls user info
+├── planner/        TaskPlanner — parses alarms, timers, multi-step tasks
+├── service/        Android services: foreground, accessibility, notification listener, tile
+├── ui/
+│   ├── screens/    Voice, Chat, Memory, Notifications, Settings
+│   ├── theme/      Dark futuristic Compose theme
+│   └── viewmodel/  AssistantViewModel, SettingsViewModel
+├── util/           PreferencesManager, AppScanner
+└── voice/          SpeechRecognitionManager, TtsManager
 ```
 
 ---
 
-## Voice Command Examples
+## Roadmap
 
-| Command | JAVIS Action |
-|---------|-------------|
-| "Call Musa" | Searches contacts, asks confirmation, makes call |
-| "Open YouTube and search football highlights" | Launches YouTube with search query |
-| "Send WhatsApp to Ibrahim saying I'm on my way" | Drafts message, asks confirmation |
-| "Set alarm for 6 AM" | Opens alarm clock with 6:00 set |
-| "Set a timer for 20 minutes" | Sets 20-min timer |
-| "What's the weather?" | Free weather from wttr.in, no key needed |
-| "What's my battery?" | Reads battery percentage + charging status |
-| "Volume up / down / mute" | Adjusts media volume immediately |
-| "Turn on / off flashlight" | Toggles camera flashlight |
-| "What notifications do I have?" | Reads notification summary |
-| "My name is Ibrahim" | JAVIS remembers your name |
-| "Search Google for weather" | Opens Google/Chrome with weather search |
-| "Remind me to call dad tomorrow at 8" | Sets reminder |
-| "Hey JAVIS" (wake word) | Activates voice mode hands-free |
-
----
-
-## Task Action Format
-
-JAVIS uses an internal action tag format in AI responses to trigger real actions:
-
-```
-[ACTION:CALL:ContactName:PhoneNumber]
-[ACTION:LAUNCH:com.package.name:AppName]
-[ACTION:SEARCH:AppName:search query]
-[ACTION:MESSAGE:ContactName:WhatsApp:message text]
-[ACTION:ALARM:Hour:Minute:Label]
-[ACTION:TIMER:minutes]
-```
-
-The AI naturally inserts these when it decides an action is needed. The app parses and executes them, always asking for confirmation on messages and calls.
-
----
-
-## Optimized for Low-End Devices (Redmi A1)
-
-- **Lazy loading**: only last 100 messages kept in memory
-- **Gemini Flash model**: lightweight, fast responses
-- **START_STICKY service**: auto-restarts if killed by system
-- **Room DB**: indexed queries, no full-table scans
-- **Coroutines**: non-blocking IO on background dispatcher
-- **No heavy animations**: all animations are simple and GPU-accelerated
-- **minSdk 26**: runs on Android 8.0+ devices
-
----
-
-## Permissions Explained
-
-| Permission | Why JAVIS needs it |
-|------------|-------------------|
-| `RECORD_AUDIO` | Voice input — hearing your commands |
-| `FOREGROUND_SERVICE` | Stay active while screen is off |
-| `READ_CONTACTS` | "Call Musa" — finding contact by name |
-| `CALL_PHONE` | Making calls after your confirmation |
-| `POST_NOTIFICATIONS` | Showing "JAVIS ONLINE" persistent notification |
-| `BIND_ACCESSIBILITY_SERVICE` | Activation shortcut + in-app actions |
-| `BIND_NOTIFICATION_LISTENER_SERVICE` | Reading your notifications when asked |
-| `SET_ALARM` | Setting alarms and timers |
-| `INTERNET` | AI API calls (Gemini/OpenAI) |
-
-JAVIS will **never** send messages or make calls without explicit confirmation. Audio is only recorded when actively listening.
-
----
-
-## Extending JAVIS
-
-### Add a new AI provider
-1. Implement `AiProvider` interface in `ai/`
-2. Add case to `AiProviderFactory.create()`
-3. Add option to Settings dropdown
-
-### Add a new app capability
-Add an entry to `AppKnowledgeEngine.knowledgeBase`:
-```kotlin
-"com.example.app" to AppProfile(
-    "com.example.app", "My App",
-    listOf("productivity"),
-    listOf("create_note", "search")
-)
-```
-
-### Add a new action type
-1. Add a `data class` to `TaskAction` sealed class in `TaskPlan.kt`
-2. Add parsing in `TaskPlanner.parseActionsFromResponse()`
-3. Add execution in `TaskPlanner.executeAction()`
+- [ ] Wake word detection ("Hey JAVIS")
+- [ ] WhatsApp message drafting with confirmation
+- [ ] Multi-turn task execution via Accessibility Service
+- [ ] Routine learning (auto-detect daily patterns)
+- [ ] Local on-device LLM (Gemma / Phi-3 via MediaPipe)
+- [ ] Conversation export
 
 ---
 
 ## License
 
-MIT License — free to use, modify, and distribute.
-Built with ❤️ as an open Android AI companion.
+MIT — free to use, modify, and distribute.
