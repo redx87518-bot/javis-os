@@ -2,9 +2,9 @@ name: Build JAVIS OS APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -22,98 +22,47 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
-          cache-read-only: false
-
-      - name: Download Gradle Wrapper JAR
-        run: |
-          mkdir -p gradle/wrapper
-          curl -fsSL "https://repo1.maven.org/maven2/dev/gradleplugins/gradle-api/8.7/gradle-api-8.7.jar" -o /tmp/check.jar 2>/dev/null || true
-          # Download official gradle-wrapper.jar from Gradle distributions
-          curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar" \
-            -o gradle/wrapper/gradle-wrapper.jar 2>/dev/null || \
-          wget -q "https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar" \
-            -O gradle/wrapper/gradle-wrapper.jar 2>/dev/null || true
-          # Fallback: use gradle wrapper command to regenerate
-          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ] || [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "Using gradle to generate wrapper..."
-            gradle wrapper --gradle-version 8.7 --distribution-type bin
-          fi
-          ls -la gradle/wrapper/
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Set Gemini API Key
-        run: |
-          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
-            sed -i 's/YOUR_GEMINI_API_KEY_HERE/${{ secrets.GEMINI_API_KEY }}/g' app/build.gradle.kts
-            echo "✅ Gemini API key set"
-          else
-            echo "⚠️ No GEMINI_API_KEY secret — building with empty key (app needs key at runtime)"
-          fi
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          gradle-version: '8.7'
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -100
+        run: gradle assembleDebug --stacktrace --no-daemon
         env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-
-      - name: Upload Debug APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: javis-os-debug-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
 
       - name: Build Release APK (unsigned)
-        if: success()
-        run: ./gradlew assembleRelease --no-daemon
+        run: gradle assembleRelease --no-daemon
         env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8"
+
+      - name: Upload Debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: javis-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Upload Release APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: javis-os-release-unsigned-${{ github.run_number }}
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: javis-release-${{ github.run_number }}
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Build Summary
         if: always()
         run: |
-          echo "## JAVIS OS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## JAVIS OS Build #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
             SIZE=$(du -sh app/build/outputs/apk/debug/app-debug.apk | cut -f1)
-            echo "✅ **Debug APK built successfully** — Size: $SIZE" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "📥 Download the APK from the **Artifacts** section above." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Build failed — check the logs above for errors." >> $GITHUB_STEP_SUMMARY
+            echo "**Debug APK size:** $SIZE" >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Create GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v') && success()
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release-unsigned.apk
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
