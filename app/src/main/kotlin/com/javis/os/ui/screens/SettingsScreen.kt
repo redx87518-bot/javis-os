@@ -1,5 +1,6 @@
 package com.javis.os.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -22,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.javis.os.ui.theme.*
 import com.javis.os.ui.viewmodel.SettingsViewModel
+import com.javis.os.util.JavisShortcutManager
 
 @Composable
 fun SettingsScreen(
@@ -29,9 +32,9 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-
-    // Snackbar
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+
     LaunchedEffect(state.savedMessage) {
         state.savedMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -49,7 +52,6 @@ fun SettingsScreen(
                 .padding(padding)
                 .padding(bottom = 80.dp)
         ) {
-            // Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -65,66 +67,106 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Profile
+
+                // ── Home Screen Shortcut (Redmi A1 & all devices) ──────────────
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CyanPrimary.copy(alpha = 0.08f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.4f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.AddToHomeScreen, contentDescription = null, tint = CyanPrimary, modifier = Modifier.size(20.dp))
+                            Text("Home Screen Shortcut", style = MaterialTheme.typography.titleMedium, color = CyanPrimary, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Tap the shortcut on your home screen to instantly activate JAVIS in listening mode — no need to open the app first. Works on Redmi A1 and all MIUI devices.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OnSurfaceLight.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                (context as? Activity)?.let {
+                                    JavisShortcutManager.addToHomeScreen(it)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.AddToHomeScreen, contentDescription = null, tint = BackgroundDark)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add JAVIS to Home Screen", color = BackgroundDark, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // ── Profile ────────────────────────────────────────────────────
                 SettingsSection(title = "Profile", icon = Icons.Default.Person) {
                     JavisTextField(
                         value = state.userName,
                         onValueChange = viewModel::updateUserName,
                         label = "Your Name",
-                        placeholder = "e.g. Musa"
+                        placeholder = "e.g. Ibrahim"
                     )
                 }
 
-                // AI Provider
+                // ── AI Provider ────────────────────────────────────────────────
                 SettingsSection(title = "AI Provider", icon = Icons.Default.SmartToy) {
-                    ProviderSelector(
-                        selected = state.aiProvider,
-                        onSelect = viewModel::updateAiProvider
-                    )
+                    ProviderSelector(selected = state.aiProvider, onSelect = viewModel::updateAiProvider)
                     Spacer(modifier = Modifier.height(12.dp))
                     JavisApiKeyField(
                         value = state.groqApiKey,
                         onValueChange = viewModel::updateGroqApiKey,
                         label = "Groq API Key",
-                        hint = "Get free key at console.groq.com"
+                        hint = "Free key at console.groq.com — fast & recommended"
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    GroqModelSelector(
-                        selected = state.groqModel,
-                        onSelect = viewModel::updateGroqModel
-                    )
+                    GroqModelSelector(selected = state.groqModel, onSelect = viewModel::updateGroqModel)
                     Spacer(modifier = Modifier.height(8.dp))
                     JavisApiKeyField(
                         value = state.deepSeekApiKey,
                         onValueChange = viewModel::updateDeepSeekApiKey,
                         label = "DeepSeek API Key (fallback)",
-                        hint = "platform.deepseek.com"
+                        hint = "platform.deepseek.com — used if Groq fails"
                     )
                 }
 
-                // Voice Output
+                // ── Voice Output ───────────────────────────────────────────────
                 SettingsSection(title = "Voice Output", icon = Icons.Default.RecordVoiceOver) {
-                    TtsProviderSelector(
-                        selected = state.ttsProvider,
-                        onSelect = viewModel::updateTtsProvider
-                    )
+                    TtsProviderSelector(selected = state.ttsProvider, onSelect = viewModel::updateTtsProvider)
                     Spacer(modifier = Modifier.height(12.dp))
-                    JavisApiKeyField(
-                        value = state.elevenLabsApiKey,
-                        onValueChange = viewModel::updateElevenLabsApiKey,
-                        label = "ElevenLabs API Key",
-                        hint = "elevenlabs.io — for natural voice"
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    JavisTextField(
-                        value = state.elevenLabsVoiceId,
-                        onValueChange = viewModel::updateElevenLabsVoiceId,
-                        label = "Voice ID",
-                        placeholder = "e.g. EXAVITQu4vr4xnSDxMaL"
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (state.ttsProvider == "elevenlabs") {
+                        JavisApiKeyField(
+                            value = state.elevenLabsApiKey,
+                            onValueChange = viewModel::updateElevenLabsApiKey,
+                            label = "ElevenLabs API Key",
+                            hint = "elevenlabs.io → Profile → API Key"
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        JavisTextField(
+                            value = state.elevenLabsVoiceId,
+                            onValueChange = viewModel::updateElevenLabsVoiceId,
+                            label = "Voice ID",
+                            placeholder = "e.g. EXAVITQu4vr4xnSDxMaL (Sarah)"
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Popular voices: Sarah=EXAVITQu4vr4xnSDxMaL · Adam=pNInz6obpgDQGcFmaJgB · Josh=TxGEqnHWrfWFTfGW9XjX",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF546E7A)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     Column {
                         Text(
                             "Speech Speed: ${String.format("%.1f", state.ttsSpeed)}x",
@@ -145,7 +187,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // Offline Mode
+                // ── Connectivity ───────────────────────────────────────────────
                 SettingsSection(title = "Connectivity", icon = Icons.Default.WifiOff) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -153,16 +195,8 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(
-                                "Offline Mode",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = OnSurfaceLight
-                            )
-                            Text(
-                                "Uses local responses only",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF546E7A)
-                            )
+                            Text("Offline Mode", style = MaterialTheme.typography.bodyMedium, color = OnSurfaceLight)
+                            Text("Uses local responses only", style = MaterialTheme.typography.labelMedium, color = Color(0xFF546E7A))
                         }
                         Switch(
                             checked = state.offlineMode,
@@ -175,28 +209,23 @@ fun SettingsScreen(
                     }
                 }
 
-                // Save Button
+                // ── Save ───────────────────────────────────────────────────────
                 Button(
                     onClick = viewModel::saveSettings,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = CyanPrimary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Save, contentDescription = null, tint = BackgroundDark)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Save Settings",
-                        color = BackgroundDark,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Text("Save Settings", color = BackgroundDark, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
     }
 }
+
+// ── Reusable composables ────────────────────────────────────────────────────
 
 @Composable
 private fun SettingsSection(
@@ -223,38 +252,20 @@ private fun SettingsSection(
 }
 
 @Composable
-private fun JavisTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    placeholder: String = ""
-) {
+private fun JavisTextField(value: String, onValueChange: (String) -> Unit, label: String, placeholder: String = "") {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label, color = Color(0xFF546E7A)) },
         placeholder = { Text(placeholder, color = Color(0xFF37474F)) },
         modifier = Modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = CyanPrimary,
-            unfocusedBorderColor = Color(0xFF263238),
-            focusedTextColor = OnSurfaceLight,
-            unfocusedTextColor = OnSurfaceLight,
-            cursorColor = CyanPrimary,
-            focusedContainerColor = SurfaceVariant,
-            unfocusedContainerColor = SurfaceVariant
-        ),
+        colors = fieldColors(),
         shape = RoundedCornerShape(12.dp)
     )
 }
 
 @Composable
-private fun JavisApiKeyField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    hint: String = ""
-) {
+private fun JavisApiKeyField(value: String, onValueChange: (String) -> Unit, label: String, hint: String = "") {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
@@ -264,31 +275,30 @@ private fun JavisApiKeyField(
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = { visible = !visible }) {
-                Icon(
-                    if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = null,
-                    tint = Color(0xFF546E7A)
-                )
+                Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, tint = Color(0xFF546E7A))
             }
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = CyanPrimary,
-            unfocusedBorderColor = Color(0xFF263238),
-            focusedTextColor = OnSurfaceLight,
-            unfocusedTextColor = OnSurfaceLight,
-            cursorColor = CyanPrimary,
-            focusedContainerColor = SurfaceVariant,
-            unfocusedContainerColor = SurfaceVariant
-        ),
+        colors = fieldColors(),
         shape = RoundedCornerShape(12.dp),
         supportingText = if (hint.isNotBlank()) {{ Text(hint, color = Color(0xFF546E7A), style = MaterialTheme.typography.labelSmall) }} else null
     )
 }
 
 @Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = CyanPrimary,
+    unfocusedBorderColor = Color(0xFF263238),
+    focusedTextColor = OnSurfaceLight,
+    unfocusedTextColor = OnSurfaceLight,
+    cursorColor = CyanPrimary,
+    focusedContainerColor = SurfaceVariant,
+    unfocusedContainerColor = SurfaceVariant
+)
+
+@Composable
 private fun ProviderSelector(selected: String, onSelect: (String) -> Unit) {
-    val providers = listOf("groq" to "Groq (Fast, Free tier)", "deepseek" to "DeepSeek")
+    val providers = listOf("groq" to "Groq (Fast, Free)", "deepseek" to "DeepSeek")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         providers.forEach { (id, label) ->
             FilterChip(
@@ -316,20 +326,10 @@ private fun GroqModelSelector(selected: String, onSelect: (String) -> Unit) {
             label = { Text("Groq Model", color = Color(0xFF546E7A)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = CyanPrimary,
-                unfocusedBorderColor = Color(0xFF263238),
-                focusedTextColor = OnSurfaceLight,
-                unfocusedTextColor = OnSurfaceLight,
-                focusedContainerColor = SurfaceVariant,
-                unfocusedContainerColor = SurfaceVariant
-            ),
+            colors = fieldColors(),
             shape = RoundedCornerShape(12.dp)
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             models.forEach { model ->
                 DropdownMenuItem(
                     text = { Text(model, color = OnSurfaceLight) },
@@ -342,13 +342,23 @@ private fun GroqModelSelector(selected: String, onSelect: (String) -> Unit) {
 
 @Composable
 private fun TtsProviderSelector(selected: String, onSelect: (String) -> Unit) {
-    val providers = listOf("android" to "Android TTS", "elevenlabs" to "ElevenLabs (Human)")
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val providers = listOf("android" to "Android TTS (offline)", "elevenlabs" to "ElevenLabs (human)")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         providers.forEach { (id, label) ->
             FilterChip(
                 selected = selected == id,
                 onClick = { onSelect(id) },
-                label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            if (id == "elevenlabs") Icons.Default.AutoAwesome else Icons.Default.VolumeUp,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = PurpleAccent.copy(alpha = 0.2f),
                     selectedLabelColor = PurpleAccent
