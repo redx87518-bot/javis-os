@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.hilt.android)
+    alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
 
@@ -16,11 +16,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "GEMINI_API_KEY", "\"YOUR_GEMINI_API_KEY_HERE\"")
-        buildConfigField("String", "OPENAI_API_KEY", "\"\"")
+        buildConfigField("String", "GROQ_BASE_URL", "\"https://api.groq.com/openai/v1/\"")
+        buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com/v1/\"")
+        buildConfigField("String", "ELEVENLABS_BASE_URL", "\"https://api.elevenlabs.io/v1/\"")
     }
 
     buildTypes {
@@ -34,6 +34,7 @@ android {
         }
         debug {
             isDebuggable = true
+            applicationIdSuffix = ".debug"
         }
     }
 
@@ -44,23 +45,11 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
-            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
-        )
     }
 
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
     }
 }
 
@@ -69,6 +58,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -82,19 +72,19 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+    implementation(libs.room.ktx)
 
     implementation(libs.datastore.preferences)
 
-    implementation(libs.retrofit)
+    implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)
-    implementation(libs.okhttp)
+    implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
 
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.coil.compose)
     implementation(libs.gson)
+    implementation(libs.accompanist.permissions)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
