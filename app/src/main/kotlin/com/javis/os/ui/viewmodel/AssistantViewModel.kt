@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.javis.os.agent.AgentRouter
+import com.javis.os.agent.GreetingManager
 import com.javis.os.domain.model.Message
 import com.javis.os.domain.repository.ConversationRepository
 import com.javis.os.memory.MemoryEngine
@@ -42,6 +43,7 @@ class AssistantViewModel @Inject constructor(
     private val speechManager: SpeechRecognitionManager,
     private val ttsManager: TtsManager,
     private val memoryEngine: MemoryEngine,
+    private val greetingManager: GreetingManager,
     private val prefs: PreferencesManager
 ) : ViewModel() {
 
@@ -59,8 +61,8 @@ class AssistantViewModel @Inject constructor(
 
     private fun observeMessages() {
         viewModelScope.launch {
-            conversationRepository.getRecentMessages().collect { messages ->
-                _uiState.update { it.copy(messages = messages) }
+            conversationRepository.getRecentMessages().collect { msgs ->
+                _uiState.update { it.copy(messages = msgs) }
             }
         }
     }
@@ -81,13 +83,11 @@ class AssistantViewModel @Inject constructor(
                     }
                     is SpeechState.Error -> _uiState.update {
                         it.copy(
-                            isListening = false,
-                            isThinking = false,
-                            lastError = state.message,
-                            assistantStatus = AssistantStatus.ERROR
+                            isListening = false, isThinking = false,
+                            lastError = state.message, assistantStatus = AssistantStatus.ERROR
                         )
                     }
-                    is SpeechState.Idle -> _uiState.update {
+                    SpeechState.Idle -> _uiState.update {
                         it.copy(isListening = false, partialText = "")
                     }
                 }
@@ -107,9 +107,9 @@ class AssistantViewModel @Inject constructor(
                     it.copy(
                         isSpeaking = state is TtsState.Speaking || state is TtsState.Loading,
                         assistantStatus = when (state) {
-                            is TtsState.Speaking -> AssistantStatus.SPEAKING
-                            is TtsState.Loading -> AssistantStatus.THINKING
-                            is TtsState.Idle -> AssistantStatus.IDLE
+                            TtsState.Speaking -> AssistantStatus.SPEAKING
+                            TtsState.Loading  -> AssistantStatus.THINKING
+                            TtsState.Idle     -> AssistantStatus.IDLE
                         }
                     )
                 }
@@ -120,11 +120,12 @@ class AssistantViewModel @Inject constructor(
     fun startListening() {
         if (_uiState.value.isListening) return
         ttsManager.stopSpeaking()
-        speechManager.startListening { /* handled via state */ }
+        speechManager.startListening { /* state flow handles result */ }
     }
 
     fun stopListening() {
         speechManager.stopListening()
+        _uiState.update { it.copy(assistantStatus = AssistantStatus.IDLE) }
     }
 
     fun sendTextMessage(text: String) {
@@ -137,27 +138,25 @@ class AssistantViewModel @Inject constructor(
         processingJob = viewModelScope.launch {
             _uiState.update { it.copy(isThinking = true, assistantStatus = AssistantStatus.THINKING) }
 
-            // Save user message
             conversationRepository.addMessage(Message.Role.USER, input)
 
-            // Route to agent
-            val response = agentRouter.route(input)
+            val response = try {
+                agentRouter.route(input)
+            } catch (e: Exception) {
+                "I ran into an issue: ${e.message}. Please try again."
+            }
 
-            // Save assistant reply
             conversationRepository.addMessage(Message.Role.ASSISTANT, response)
-
-            // Learn from conversation
             memoryEngine.learnFromConversation(input, response)
 
-            _uiState.update { it.copy(isThinking = false, assistantStatus = AssistantStatus.SPEAKING) }
-
-            // Speak the response
+            _uiState.update { it.copy(isThinking = false) }
             ttsManager.speak(response)
         }
     }
 
     fun stopSpeaking() {
         ttsManager.stopSpeaking()
+        _uiState.update { it.copy(assistantStatus = AssistantStatus.IDLE) }
     }
 
     fun clearError() {
