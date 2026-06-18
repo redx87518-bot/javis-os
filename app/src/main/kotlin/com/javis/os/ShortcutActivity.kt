@@ -5,19 +5,23 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import com.javis.os.service.JavisAssistantService
+import com.javis.os.ui.screens.VoiceSessionActivity
 
 /**
- * Transparent launcher activity for Redmi A1 and devices without overlay/accessibility shortcut support.
+ * ShortcutActivity — transparent trampoline for the home screen shortcut.
  *
- * Add this to your home screen via Settings → "Add Home Screen Shortcut".
- * Tapping it immediately opens JAVIS in listening mode.
+ * Tapping the home screen icon does NOT open the full app.
+ * Instead it launches VoiceSessionActivity — JAVIS greets you, listens,
+ * responds and stays alive for a full back-and-forth conversation.
+ *
+ * Works on Redmi A1 / MIUI without overlay permissions.
  */
 class ShortcutActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Start the assistant service (keep-alive)
+        // Keep the background service alive
         val serviceIntent = Intent(this, JavisAssistantService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
@@ -25,13 +29,13 @@ class ShortcutActivity : Activity() {
             startService(serviceIntent)
         }
 
-        // Launch MainActivity in listening mode
-        val mainIntent = Intent(this, MainActivity::class.java).apply {
-            action = ACTION_START_LISTENING
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        // Open the persistent conversational voice screen
+        val voiceIntent = Intent(this, VoiceSessionActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        startActivity(mainIntent)
-        finish() // Close this transparent activity immediately
+        startActivity(voiceIntent)
+
+        finish() // Close this transparent trampoline immediately
     }
 
     companion object {
