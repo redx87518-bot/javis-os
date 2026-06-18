@@ -15,23 +15,13 @@ class MemoryRepositoryImpl @Inject constructor(
 ) : MemoryRepository {
 
     override fun getAllMemories(): Flow<List<Memory>> =
-        memoryDao.getAllMemories().map { list ->
-            list.map { it.toDomain() }
-        }
+        memoryDao.getAllMemories().map { list -> list.map { it.toDomain() } }
 
     override suspend fun remember(key: String, value: String, category: String, importance: Int) {
-        memoryDao.insert(
-            MemoryEntity(
-                key = key,
-                value = value,
-                category = category,
-                importance = importance
-            )
-        )
+        memoryDao.insert(MemoryEntity(key = key, value = value, category = category, importance = importance))
     }
 
-    override suspend fun recall(key: String): String? =
-        memoryDao.getByKey(key)?.value
+    override suspend fun recall(key: String): String? = memoryDao.getByKey(key)?.value
 
     override suspend fun getContextSummary(): String {
         val memories = memoryDao.getTopMemories(20)
@@ -39,16 +29,10 @@ class MemoryRepositoryImpl @Inject constructor(
         return memories.joinToString("\n") { "- ${it.key}: ${it.value}" }
     }
 
-    override suspend fun forgetKey(key: String) {
-        memoryDao.deleteByKey(key)
-    }
+    override suspend fun forgetKey(key: String) { memoryDao.deleteByKey(key) }
 
-    private fun MemoryEntity.toDomain() = Memory(
-        id = id,
-        key = key,
-        value = value,
-        category = category,
-        importance = importance,
-        timestamp = timestamp
-    )
+    override suspend fun clearAll() { memoryDao.clearAll() }
+
+    private fun MemoryEntity.toDomain() =
+        Memory(id = id, key = key, value = value, category = category, importance = importance, timestamp = timestamp)
 }
