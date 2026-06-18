@@ -21,39 +21,26 @@ class ContactAgent @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
+    /** Fuzzy contact search — checks exact, then contains, then word-level. */
     fun searchContact(query: String): Contact? {
-        val resolver: ContentResolver = context.contentResolver
         val cleanQuery = query.trim().lowercase()
         if (cleanQuery.isBlank()) return null
 
-        try {
-            val cursor = resolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                arrayOf(
-                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    ContactsContract.CommonDataKinds.Phone.NUMBER
-                ),
-                "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?",
-                arrayOf("%$cleanQuery%"),
-                "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
-            )
+        // 1. Try direct LIKE query first
+        val direct = queryContacts("%$cleanQuery%")
+        if (direct.isNotEmpty()) return direct.first()
 
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val nameIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    val numIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                    val name = it.getString(nameIdx) ?: return null
-                    val number = it.getString(numIdx) ?: return null
-                    return Contact(name = name, phoneNumber = number)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("ContactAgent", "Contact search error: ${e.message}")
+        // 2. Fuzzy — each word in query against all contacts
+        val words = cleanQuery.split(" ").filter { it.length > 2 }
+        if (words.isEmpty()) return null
+
+        val allContacts = queryContacts("%")
+        return allContacts.firstOrNull { contact ->
+            words.any { word -> contact.normalizedName.contains(word) }
         }
-        return null
     }
 
-    fun getAllContacts(): List<Contact> {
+    private fun queryContacts(pattern: String): List<Contact> {
         val contacts = mutableListOf<Contact>()
         try {
             val cursor = context.contentResolver.query(
@@ -62,7 +49,8 @@ class ContactAgent @Inject constructor(
                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                     ContactsContract.CommonDataKinds.Phone.NUMBER
                 ),
-                null, null,
+                "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?",
+                arrayOf(pattern),
                 "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
             )
             cursor?.use {
@@ -75,108 +63,119 @@ class ContactAgent @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.e("ContactAgent", "Error listing contacts: ${e.message}")
+            Log.e("ContactAgent", "Contact query error: ${e.message}")
         }
         return contacts.distinctBy { it.phoneNumber }
     }
 
+    fun getAllContacts(): List<Contact> = queryContacts("%")
+
     /**
-     * Initiate call — uses ACTION_DIAL (shows dialer with number pre-filled, user confirms).
-     * Never uses ACTION_CALL directly without user confirmation.
+     * Directly dials the contact using ACTION_CALL (requires CALL_PHONE permission).
+     * If permission is missing at runtime, falls back to ACTION_DIAL (shows dialer).
      */
     fun initiateCall(contact: Contact): String {
         return try {
-            val intent = Intent(Intent.ACTION_DIAL).apply {
+            // ACTION_CALL dials immediately — no user confirmation step in dialer
+            val callIntent = Intent(Intent.ACTION_CALL).apply {
                 data = Uri.parse("tel:${contact.phoneNumber}")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(intent)
-            "Opening dialer to call ${contact.name} at ${contact.phoneNumber}. Please confirm the call."
+            context.startActivity(callIntent)
+            "Calling ${contact.name} now…"
+        } catch (e: SecurityException) {
+            // CALL_PHONE permission denied at runtime — fall back to dialer
+            Log.w("ContactAgent", "CALL_PHONE denied, falling back to DIAL")
+            try {
+                val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                    data = Uri.parse("tel:${contact.phoneNumber}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(dialIntent)
+                "I've pre-filled ${contact.name}'s number in the dialer — tap the call button to connect."
+            } catch (e2: Exception) {
+                "Couldn't initiate call: ${e2.message}"
+            }
         } catch (e: Exception) {
-            "I couldn't open the dialer: ${e.message}"
+            Log.e("ContactAgent", "Call failed: ${e.message}")
+            "I had trouble calling ${contact.name}. ${e.message}"
         }
     }
 
     /**
-     * Handle a call request: search for contact, then dial.
+     * Full call flow: parse name, search, dial (or show dialer if not found).
      */
     fun handleCallRequest(nameQuery: String): String {
-        // Direct number?
-        if (nameQuery.matches(Regex("[0-9+\\-\\s()]{7,}"))) {
+        val trimmed = nameQuery.trim()
+
+        // Direct number
+        if (trimmed.matches(Regex("[0-9+\\-\\s()]{7,}"))) {
             return try {
-                val intent = Intent(Intent.ACTION_DIAL).apply {
-                    data = Uri.parse("tel:${nameQuery.replace(" ", "")}")
+                context.startActivity(Intent(Intent.ACTION_CALL).apply {
+                    data = Uri.parse("tel:${trimmed.replace(" ", "")}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                "Opening dialer for $nameQuery. Please confirm the call."
+                })
+                "Dialing $trimmed…"
+            } catch (e: SecurityException) {
+                context.startActivity(Intent(Intent.ACTION_DIAL).apply {
+                    data = Uri.parse("tel:${trimmed.replace(" ", "")}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+                "Dialer opened for $trimmed."
             } catch (e: Exception) {
-                "I couldn't open the dialer: ${e.message}"
+                "Couldn't dial $trimmed: ${e.message}"
             }
         }
 
-        val contact = searchContact(nameQuery)
+        val contact = searchContact(trimmed)
         return if (contact != null) {
             initiateCall(contact)
         } else {
-            // Try opening contacts search as fallback
+            // Open contacts picker as last resort
             try {
-                val intent = Intent(Intent.ACTION_PICK).apply {
+                context.startActivity(Intent(Intent.ACTION_PICK).apply {
                     type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                "I couldn't find \"$nameQuery\" in your contacts. I've opened your contacts so you can pick manually."
+                })
+                "I couldn't find \"$trimmed\" in your contacts. I've opened your contacts — pick the person to call."
             } catch (e: Exception) {
-                "I couldn't find \"$nameQuery\" in your contacts. Please check the name and try again."
+                "I couldn't find \"$trimmed\" in your contacts. Please check the name and try again."
             }
         }
     }
 
     /**
-     * Open messaging app for a contact (WhatsApp first, then SMS).
-     * Never sends without user confirmation — just opens the compose window.
+     * Open WhatsApp or SMS compose for a contact.
      */
     fun openMessageCompose(nameQuery: String, message: String): String {
-        val contact = searchContact(nameQuery)
-        val phone = contact?.phoneNumber
+        val contact = searchContact(nameQuery) ?: return "I couldn't find \"$nameQuery\" in your contacts."
+        val phone = contact.phoneNumber
 
-        return if (phone != null) {
-            // Try WhatsApp first
-            val whatsappOpened = tryOpenWhatsApp(phone, message)
-            if (!whatsappOpened) {
-                // Fall back to SMS
-                openSms(phone, message)
-            }
-            "I've opened a message to ${contact.name} with: \"$message\"\nPlease review and send it yourself — I never send without your confirmation."
-        } else {
-            "I couldn't find \"$nameQuery\" in your contacts."
-        }
+        val whatsappOpened = tryOpenWhatsApp(phone, message)
+        if (!whatsappOpened) openSms(phone, message)
+
+        return "I've opened a message to ${contact.name} with: \"$message\"\nPlease review and send — I never send without your confirmation."
     }
 
     private fun tryOpenWhatsApp(phone: String, message: String): Boolean {
         return try {
             val cleanPhone = phone.replace("[^0-9+]".toRegex(), "")
-            val intent = Intent(Intent.ACTION_VIEW).apply {
+            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(message)}")
                 setPackage("com.whatsapp")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
+            })
             true
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     }
 
     private fun openSms(phone: String, message: String) {
         try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
+            context.startActivity(Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("smsto:$phone")
                 putExtra("sms_body", message)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
+            })
         } catch (e: Exception) {
             Log.e("ContactAgent", "SMS open failed: ${e.message}")
         }
