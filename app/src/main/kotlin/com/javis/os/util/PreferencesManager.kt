@@ -111,4 +111,7 @@ class PreferencesManager @Inject constructor(
     suspend fun setOfflineMode(enabled: Boolean) {
         dataStore.edit { it[KEY_OFFLINE_MODE] = enabled }
     }
+
+    /** Returns true if at least one AI API key has been entered. */
+    fun hasAnyApiKey(): Boolean = getGroqApiKey().isNotBlank() || getDeepSeekApiKey().isNotBlank()
 }
