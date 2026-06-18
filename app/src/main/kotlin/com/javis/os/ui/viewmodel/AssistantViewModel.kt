@@ -19,6 +19,7 @@ import com.javis.os.voice.TtsState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -30,7 +31,8 @@ data class AssistantUiState(
     val isSpeaking: Boolean = false,
     val partialText: String = "",
     val lastError: String? = null,
-    val assistantStatus: AssistantStatus = AssistantStatus.IDLE
+    val assistantStatus: AssistantStatus = AssistantStatus.IDLE,
+    val autoListenEnabled: Boolean = true
 )
 
 enum class AssistantStatus { IDLE, LISTENING, THINKING, SPEAKING, ERROR }
@@ -51,6 +53,7 @@ class AssistantViewModel @Inject constructor(
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
 
     private var processingJob: Job? = null
+    private var autoListenJob: Job? = null
 
     init {
         observeMessages()
@@ -58,6 +61,8 @@ class AssistantViewModel @Inject constructor(
         observeTtsState()
         startAssistantService()
     }
+
+    // ── Observers ─────────────────────────────────────────────────────────────
 
     private fun observeMessages() {
         viewModelScope.launch {
@@ -72,20 +77,36 @@ class AssistantViewModel @Inject constructor(
             speechManager.state.collect { state ->
                 when (state) {
                     is SpeechState.Listening -> _uiState.update {
-                        it.copy(isListening = true, assistantStatus = AssistantStatus.LISTENING, lastError = null)
+                        it.copy(
+                            isListening = true,
+                            assistantStatus = AssistantStatus.LISTENING,
+                            lastError = null
+                        )
                     }
                     is SpeechState.Processing -> _uiState.update {
-                        it.copy(isListening = false, isThinking = true, assistantStatus = AssistantStatus.THINKING)
+                        it.copy(
+                            isListening = false,
+                            isThinking = true,
+                            assistantStatus = AssistantStatus.THINKING
+                        )
                     }
                     is SpeechState.Result -> {
                         _uiState.update { it.copy(isListening = false, partialText = "") }
                         processUserInput(state.text)
                     }
-                    is SpeechState.Error -> _uiState.update {
-                        it.copy(
-                            isListening = false, isThinking = false,
-                            lastError = state.message, assistantStatus = AssistantStatus.ERROR
-                        )
+                    is SpeechState.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                isListening = false,
+                                isThinking = false,
+                                lastError = state.message,
+                                assistantStatus = AssistantStatus.ERROR
+                            )
+                        }
+                        // Auto-retry listening after error (not too fast)
+                        if (_uiState.value.autoListenEnabled) {
+                            scheduleAutoListen(delayMs = 2000)
+                        }
                     }
                     SpeechState.Idle -> _uiState.update {
                         it.copy(isListening = false, partialText = "")
@@ -103,27 +124,51 @@ class AssistantViewModel @Inject constructor(
     private fun observeTtsState() {
         viewModelScope.launch {
             ttsManager.state.collect { state ->
+                val isSpeaking = state is TtsState.Speaking || state is TtsState.Loading
                 _uiState.update {
                     it.copy(
-                        isSpeaking = state is TtsState.Speaking || state is TtsState.Loading,
+                        isSpeaking = isSpeaking,
                         assistantStatus = when (state) {
                             TtsState.Speaking -> AssistantStatus.SPEAKING
-                            TtsState.Loading  -> AssistantStatus.THINKING
-                            TtsState.Idle     -> AssistantStatus.IDLE
+                            TtsState.Loading -> AssistantStatus.THINKING
+                            TtsState.Idle -> AssistantStatus.IDLE
                         }
                     )
+                }
+                // When speaking finishes, auto-start listening again
+                if (state == TtsState.Idle && _uiState.value.autoListenEnabled) {
+                    scheduleAutoListen(delayMs = 600)
                 }
             }
         }
     }
 
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /**
+     * Greet the user with a contextual welcome, then start listening.
+     * Called when VoiceSessionActivity opens.
+     */
+    fun greetAndListen() {
+        viewModelScope.launch {
+            val greeting = greetingManager.getWakeResponse()
+            _uiState.update { it.copy(assistantStatus = AssistantStatus.SPEAKING) }
+            conversationRepository.addMessage(Message.Role.ASSISTANT, greeting)
+            ttsManager.speak(greeting)
+            // TtsState observer will auto-start listening when done
+        }
+    }
+
     fun startListening() {
-        if (_uiState.value.isListening) return
+        autoListenJob?.cancel()
+        val state = _uiState.value
+        if (state.isListening || state.isThinking || state.isSpeaking) return
         ttsManager.stopSpeaking()
-        speechManager.startListening { /* state flow handles result */ }
+        speechManager.startListening { /* handled via state flow */ }
     }
 
     fun stopListening() {
+        autoListenJob?.cancel()
         speechManager.stopListening()
         _uiState.update { it.copy(assistantStatus = AssistantStatus.IDLE) }
     }
@@ -131,27 +176,6 @@ class AssistantViewModel @Inject constructor(
     fun sendTextMessage(text: String) {
         if (text.isBlank()) return
         processUserInput(text)
-    }
-
-    private fun processUserInput(input: String) {
-        processingJob?.cancel()
-        processingJob = viewModelScope.launch {
-            _uiState.update { it.copy(isThinking = true, assistantStatus = AssistantStatus.THINKING) }
-
-            conversationRepository.addMessage(Message.Role.USER, input)
-
-            val response = try {
-                agentRouter.route(input)
-            } catch (e: Exception) {
-                "I ran into an issue: ${e.message}. Please try again."
-            }
-
-            conversationRepository.addMessage(Message.Role.ASSISTANT, response)
-            memoryEngine.learnFromConversation(input, response)
-
-            _uiState.update { it.copy(isThinking = false) }
-            ttsManager.speak(response)
-        }
     }
 
     fun stopSpeaking() {
@@ -162,6 +186,58 @@ class AssistantViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(lastError = null, assistantStatus = AssistantStatus.IDLE) }
     }
+
+    fun toggleAutoListen(enabled: Boolean) {
+        _uiState.update { it.copy(autoListenEnabled = enabled) }
+    }
+
+    // ── Core processing ───────────────────────────────────────────────────────
+
+    private fun processUserInput(input: String) {
+        autoListenJob?.cancel()
+        processingJob?.cancel()
+        processingJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isThinking = true,
+                    isListening = false,
+                    assistantStatus = AssistantStatus.THINKING
+                )
+            }
+
+            conversationRepository.addMessage(Message.Role.USER, input)
+
+            val response = try {
+                agentRouter.route(input)
+            } catch (e: Exception) {
+                "I hit a snag: ${e.message}. Let me try again."
+            }
+
+            conversationRepository.addMessage(Message.Role.ASSISTANT, response)
+
+            // Learn from the exchange
+            viewModelScope.launch {
+                try { memoryEngine.learnFromConversation(input, response) } catch (_: Exception) {}
+            }
+
+            _uiState.update { it.copy(isThinking = false) }
+            ttsManager.speak(response)
+            // TtsState observer handles auto-listen after speech
+        }
+    }
+
+    private fun scheduleAutoListen(delayMs: Long) {
+        autoListenJob?.cancel()
+        autoListenJob = viewModelScope.launch {
+            delay(delayMs)
+            val s = _uiState.value
+            if (s.autoListenEnabled && !s.isListening && !s.isThinking && !s.isSpeaking) {
+                startListening()
+            }
+        }
+    }
+
+    // ── Service ───────────────────────────────────────────────────────────────
 
     private fun startAssistantService() {
         val intent = Intent(context, JavisAssistantService::class.java)
@@ -174,6 +250,8 @@ class AssistantViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        autoListenJob?.cancel()
+        processingJob?.cancel()
         speechManager.stopListening()
         ttsManager.destroy()
     }
