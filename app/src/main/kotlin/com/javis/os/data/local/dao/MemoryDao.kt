@@ -26,4 +26,7 @@ interface MemoryDao {
 
     @Delete
     suspend fun delete(memory: MemoryEntity)
+
+    @Query("DELETE FROM memories")
+    suspend fun clearAll()
 }
