@@ -9,18 +9,30 @@
     <!-- Voice -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Contacts & Calls -->
+    <!-- Contacts and Calls -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- SMS / messaging -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+
+    <!-- App launcher queries (Android 11+) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Alarms -->
+    <!-- Alarms / timers -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SET_ALARM" />
 
     <!-- Notifications listener -->
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
@@ -38,6 +50,29 @@
 
     <!-- Home screen shortcut (legacy broadcast, needed for MIUI/Redmi) -->
     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+
+    <!-- Media -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Package queries for app launching -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.telegram.messenger" />
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.twitter.android" />
+        <package android:name="com.spotify.music" />
+        <package android:name="com.netflix.mediaclient" />
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="com.google.android.gm" />
+        <package android:name="com.google.android.calendar" />
+        <package android:name="us.zoom.videomeetings" />
+    </queries>
 
     <application
         android:name=".JavisApplication"
@@ -59,16 +94,29 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <!--
+            VoiceSessionActivity — persistent conversational voice screen.
+            This is what the home screen shortcut opens.
+            Tap → JAVIS greets and listens. Stays alive for full back-and-forth.
+            Works on Redmi A1 / MIUI without overlay permissions.
+        -->
+        <activity
+            android:name=".ui.screens.VoiceSessionActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.JavisOS"
+            android:windowSoftInputMode="stateHidden|adjustResize">
             <intent-filter>
-                <action android:name="com.javis.os.ACTION_START_LISTENING" />
+                <action android:name="com.javis.os.ACTION_VOICE_SESSION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
         <!--
-            Shortcut Activity — for Redmi A1 and devices without overlay support.
-            Tap the home screen shortcut → JAVIS opens instantly in listening mode.
-            Add the shortcut from: JAVIS Settings → "Add to Home Screen"
+            ShortcutActivity — transparent trampoline for home screen shortcut.
+            Redirects to VoiceSessionActivity immediately and closes.
         -->
         <activity
             android:name=".ShortcutActivity"
