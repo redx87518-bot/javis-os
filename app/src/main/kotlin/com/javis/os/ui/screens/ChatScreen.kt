@@ -1,18 +1,49 @@
 package com.javis.os.ui.screens
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,10 +53,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.javis.os.domain.model.Message
-import com.javis.os.ui.theme.*
+import com.javis.os.ui.theme.BackgroundDark
+import com.javis.os.ui.theme.CyanPrimary
+import com.javis.os.ui.theme.OnSurfaceLight
+import com.javis.os.ui.theme.PurpleAccent
+import com.javis.os.ui.theme.SurfaceDark
+import com.javis.os.ui.theme.SurfaceVariant
 import com.javis.os.ui.viewmodel.AssistantViewModel
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ChatScreen(
@@ -36,24 +73,25 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    // Auto scroll to bottom
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
 
+    // imePadding() pushes the whole column up when keyboard opens.
+    // The bottom 80.dp accounts for the bottom navigation bar height.
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(bottom = 80.dp) // Nav bar height
+            .imePadding()
     ) {
-        // Header
+        // ── Header ────────────────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(SurfaceDark)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp, vertical = 14.dp)
         ) {
             Text(
                 text = "JAVIS Chat",
@@ -73,7 +111,7 @@ fun ChatScreen(
 
         HorizontalDivider(color = CyanPrimary.copy(alpha = 0.2f))
 
-        // Messages
+        // ── Messages ──────────────────────────────────────────────────────────
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
@@ -96,7 +134,7 @@ fun ChatScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "How can I help you today?",
+                                text = "Type or use voice to talk to me.",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = OnSurfaceLight.copy(alpha = 0.6f)
                             )
@@ -104,17 +142,15 @@ fun ChatScreen(
                     }
                 }
             }
-            items(uiState.messages) { message ->
+            items(uiState.messages, key = { it.id }) { message ->
                 MessageBubble(message = message)
             }
             if (uiState.isThinking) {
-                item {
-                    ThinkingIndicator()
-                }
+                item { ThinkingIndicator() }
             }
         }
 
-        // Input
+        // ── Input row ─────────────────────────────────────────────────────────
         HorizontalDivider(color = CyanPrimary.copy(alpha = 0.15f))
         Row(
             modifier = Modifier
@@ -128,11 +164,13 @@ fun ChatScreen(
                 value = inputText,
                 onValueChange = { inputText = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Ask JAVIS anything...", color = Color(0xFF546E7A)) },
+                placeholder = {
+                    Text("Ask JAVIS anything…", color = Color(0xFF546E7A))
+                },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
                     if (inputText.isNotBlank()) {
-                        viewModel.sendTextMessage(inputText)
+                        viewModel.sendTextMessage(inputText.trim())
                         inputText = ""
                     }
                 }),
@@ -146,12 +184,13 @@ fun ChatScreen(
                     unfocusedContainerColor = SurfaceVariant
                 ),
                 shape = RoundedCornerShape(24.dp),
-                maxLines = 3
+                maxLines = 4,
+                singleLine = false
             )
             IconButton(
                 onClick = {
                     if (inputText.isNotBlank()) {
-                        viewModel.sendTextMessage(inputText)
+                        viewModel.sendTextMessage(inputText.trim())
                         inputText = ""
                     }
                 },
@@ -169,6 +208,9 @@ fun ChatScreen(
                 )
             }
         }
+
+        // Space so content isn't hidden behind the bottom navigation bar
+        Spacer(modifier = Modifier.height(80.dp))
     }
 }
 
@@ -202,15 +244,12 @@ private fun MessageBubble(message: Message) {
                 modifier = Modifier
                     .clip(
                         RoundedCornerShape(
-                            topStart = 18.dp,
-                            topEnd = 18.dp,
+                            topStart = 18.dp, topEnd = 18.dp,
                             bottomStart = if (isUser) 18.dp else 4.dp,
                             bottomEnd = if (isUser) 4.dp else 18.dp
                         )
                     )
-                    .background(
-                        if (isUser) CyanPrimary.copy(alpha = 0.15f) else SurfaceVariant
-                    )
+                    .background(if (isUser) CyanPrimary.copy(alpha = 0.15f) else SurfaceVariant)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Text(
@@ -222,7 +261,7 @@ private fun MessageBubble(message: Message) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = timeFormat.format(Date(message.timestamp)),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFF546E7A)
             )
         }
@@ -252,13 +291,11 @@ private fun ThinkingIndicator() {
     ) {
         repeat(3) { index ->
             val alpha by infiniteTransition.animateFloat(
-                initialValue = 0.2f,
-                targetValue = 1f,
+                initialValue = 0.2f, targetValue = 1f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(600, delayMillis = index * 200),
                     repeatMode = RepeatMode.Reverse
-                ),
-                label = "dot$index"
+                ), label = "dot$index"
             )
             Box(
                 modifier = Modifier
